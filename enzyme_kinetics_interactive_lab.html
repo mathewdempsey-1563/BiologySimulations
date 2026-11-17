@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enzyme Kinetics Lab — Amylase & Maltase Pathway Simulation</title>
+  <!-- Tailwind CSS for clean, responsive scientific dashboard styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono for clear numeric readouts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            lab: {
+              bg: '#f8fafc',
+              card: '#ffffff',
+              border: '#e2e8f0',
+              text: '#0f172a',
+              muted: '#475569'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom range slider styling for crisp lab precision */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0284c7;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      transition: transform 0.1s ease, background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+      background: #0369a1;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0284c7;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+    /* Subtle scientific grid pattern for reaction chamber */
+    .chamber-grid {
+      background-color: #0f172a;
+      background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-sky-100 selection:text-sky-900">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <!-- Custom Molecular Icon -->
+        <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-sm shrink-0">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3a9 9 0 1 0 9 9h-9V3z" />
+            <circle cx="17.5" cy="6.5" r="2.5" fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900">Enzyme Kinetics Virtual Lab</h1>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Clean &amp; Ad-Free
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">Sequential Hydrolysis: Starch &rarr; Maltose &rarr; Glucose (Amylase &amp; Maltase)</p>
+        </div>
+      </div>
+
+      <!-- Top View Switcher: Simulation Lab vs Lab Guide -->
+      <nav class="flex flex-wrap items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1" aria-label="Simulation Modes">
+        <button id="tab-full-btn" type="button" onclick="switchMode('full')"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-xs transition">
+          1. Full Pathway
+        </button>
+        <button id="tab-single-btn" type="button" onclick="switchMode('single')"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+          2. Single Enzyme
+        </button>
+        <button id="tab-sweep-btn" type="button" onclick="switchMode('sweep')"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+          3. Optimal Curve Explorer
+        </button>
+        <button id="tab-guide-btn" type="button" onclick="switchMode('guide')"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition">
+          Lab Guide
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Toast Notification Banner (Replaces alert() cleanly) -->
+  <div id="toast-banner" class="fixed bottom-4 right-4 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-slate-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 border border-slate-700">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      <span id="toast-message">Action completed</span>
+    </div>
+  </div>
+
+  <!-- MAIN SIMULATION VIEW (Tabs 1 & 2) -->
+  <main id="view-sim" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Biochemical Pathway & Mode Controls Banner -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-4 mb-6 shadow-2xs">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <!-- Pathway Diagram & Single-Enzyme Isolate Selector -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+          <span class="font-semibold text-slate-500 uppercase tracking-wider text-xs mr-1">Pathway:</span>
+          <div id="pill-starch" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-semibold transition">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            Starch <span class="text-amber-600 font-normal">(4-unit)</span>
+          </div>
+          <div id="arrow-amylase" class="flex flex-col items-center px-1 transition">
+            <span class="text-[11px] font-bold text-sky-600">Amylase</span>
+            <span class="text-slate-400 leading-none">&xrarr;</span>
+          </div>
+          <div id="pill-maltose" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-teal-900 font-semibold transition">
+            <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+            Maltose <span class="text-teal-600 font-normal">(2-unit)</span>
+          </div>
+          <div id="arrow-maltase" class="flex flex-col items-center px-1 transition">
+            <span class="text-[11px] font-bold text-indigo-600">Maltase</span>
+            <span class="text-slate-400 leading-none">&xrarr;</span>
+          </div>
+          <div id="pill-glucose" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold transition">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            Glucose <span class="text-emerald-600 font-normal">(1-unit)</span>
+          </div>
+
+          <!-- Single Enzyme Isolation Switcher (Visible in Mode 2) -->
+          <div id="single-enzyme-selector" class="hidden ml-2 pl-3 border-l border-slate-200 flex items-center gap-1.5">
+            <span class="text-xs font-semibold text-slate-500">Isolate:</span>
+            <button type="button" id="iso-amylase-btn" onclick="setIsolatedEnzyme('amylase')"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-2xs transition">
+              Amylase Only
+            </button>
+            <button type="button" id="iso-maltase-btn" onclick="setIsolatedEnzyme('maltase')"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              Maltase Only
+            </button>
+          </div>
+        </div>
+
+        <!-- Preset Experiments Pills -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-semibold text-slate-500 mr-1">Presets:</span>
+          <button type="button" onclick="applyPreset('optimal')"
+            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 transition">
+            Optimal (37°C, pH 7)
+          </button>
+          <button type="button" onclick="applyPreset('comp_inhib')"
+            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 transition">
+            Competitive Inhib.
+          </button>
+          <button type="button" onclick="applyPreset('noncomp_inhib')"
+            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200 transition">
+            Allosteric Inhib.
+          </button>
+          <button type="button" onclick="applyPreset('fever')"
+            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition">
+            High Heat (70°C)
+          </button>
+          <button type="button" onclick="applyPreset('acid')"
+            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition">
+            Stomach Acid (pH 2)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-Column Laboratory Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT COLUMN: Experimental Variables & Playback Controls (4 cols) -->
+      <aside class="lg:col-span-4 space-y-5">
+
+        <!-- Simulation Transport Controls Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Elapsed Lab Time</span>
+              <div class="flex items-baseline gap-1.5">
+                <span id="sim-clock" class="text-2xl font-bold font-mono text-slate-900">0.0</span>
+                <span id="sim-duration-label" class="text-sm font-medium text-slate-500">/ 60.0 s</span>
+              </div>
+            </div>
+            <!-- Speed Multiplier Toggle -->
+            <div class="flex flex-col items-end">
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Sim Speed</span>
+              <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+                <button type="button" id="speed-1" onclick="setSpeed(1)" class="px-2 py-1 text-xs font-semibold rounded-md bg-white text-slate-900 shadow-2xs">1x</button>
+                <button type="button" id="speed-2" onclick="setSpeed(2)" class="px-2 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900">2x</button>
+                <button type="button" id="speed-4" onclick="setSpeed(4)" class="px-2 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900">4x</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trial Duration Selector -->
+          <div class="flex items-center justify-between text-xs mb-3">
+            <span class="font-semibold text-slate-500">Trial Duration:</span>
+            <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+              <button type="button" id="dur-30" onclick="setDuration(30)" class="px-2 py-0.5 font-medium rounded-md text-slate-600 hover:text-slate-900">30s</button>
+              <button type="button" id="dur-60" onclick="setDuration(60)" class="px-2 py-0.5 font-semibold rounded-md bg-white text-slate-900 shadow-2xs">60s</button>
+              <button type="button" id="dur-90" onclick="setDuration(90)" class="px-2 py-0.5 font-medium rounded-md text-slate-600 hover:text-slate-900">90s</button>
+              <button type="button" id="dur-0" onclick="setDuration(0)" class="px-2 py-0.5 font-medium rounded-md text-slate-600 hover:text-slate-900">Cont.</button>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
+            <div id="sim-progress" class="h-full bg-sky-600 transition-all duration-100" style="width: 0%"></div>
+          </div>
+
+          <!-- Primary Action Buttons: Run/Pause, Step (+1s), Reset -->
+          <div class="grid grid-cols-12 gap-2">
+            <button id="btn-start-pause" type="button" onclick="toggleSimulation()"
+              class="col-span-5 py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-semibold text-xs sm:text-sm shadow-xs transition flex items-center justify-center gap-1.5">
+              <svg id="icon-play" class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+              </svg>
+              <svg id="icon-pause" class="w-4 h-4 hidden shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
+              </svg>
+              <span id="btn-start-text">Run</span>
+            </button>
+
+            <button type="button" onclick="stepOneSecond()"
+              class="col-span-4 py-2.5 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-semibold text-xs sm:text-sm border border-indigo-200 transition flex items-center justify-center gap-1">
+              <span>Step +1s</span>
+            </button>
+
+            <button type="button" onclick="resetSimulation()"
+              class="col-span-3 py-2.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs sm:text-sm border border-slate-200 transition flex items-center justify-center">
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Environmental & Concentration Sliders Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Experimental Variables</h2>
+            <span class="text-xs text-slate-400">Live updates</span>
+          </div>
+
+          <!-- Temperature -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="slider-temp" class="text-xs sm:text-sm font-semibold text-slate-700">Temperature</label>
+              <span id="val-temp" class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">37 °C</span>
+            </div>
+            <input id="slider-temp" type="range" min="0" max="80" step="1" value="37" class="w-full" oninput="handleParamChange('temp', this.value)">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <span>0°C (Ice)</span>
+              <span class="text-emerald-600 font-medium">37°C (Opt)</span>
+              <span class="text-rose-500">80°C (Boil)</span>
+            </div>
+          </div>
+
+          <!-- pH Level -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="slider-ph" class="text-xs sm:text-sm font-semibold text-slate-700">Solution pH</label>
+              <span id="val-ph" class="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">pH 7.0</span>
+            </div>
+            <input id="slider-ph" type="range" min="1.0" max="14.0" step="0.5" value="7.0" class="w-full" oninput="handleParamChange('ph', this.value)">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <span class="text-rose-500">1.0 (Acid)</span>
+              <span class="text-emerald-600 font-medium">7.0 (Neutral)</span>
+              <span class="text-indigo-500">14.0 (Base)</span>
+            </div>
+          </div>
+
+          <hr class="border-slate-100">
+
+          <!-- Substrates (0 to 60 molecules) -->
+          <div id="control-group-starch">
+            <div class="flex justify-between items-center mb-1">
+              <label for="slider-starch" class="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                Starch Substrate
+              </label>
+              <span id="val-starch" class="font-mono text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">40 mol</span>
+            </div>
+            <input id="slider-starch" type="range" min="0" max="60" step="2" value="40" class="w-full" oninput="handleParamChange('starch', this.value)">
+          </div>
+
+          <div id="control-group-maltose">
+            <div class="flex justify-between items-center mb-1">
+              <label for="slider-maltose" class="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+                Initial / Extra Maltose
+              </label>
+              <span id="val-maltose" class="font-mono text-xs font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">0 mol</span>
+            </div>
+            <input id="slider-maltose" type="range" min="0" max="60" step="2" value="0" class="w-full" oninput="handleParamChange('maltose', this.value)">
+          </div>
+
+          <hr class="border-slate-100">
+
+          <!-- Enzymes (0 to 25 molecules) -->
+          <div id="control-group-amylase">
+            <div class="flex justify-between items-center mb-1">
+              <label for="slider-amylase" class="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-sky-500"></span>
+                Amylase Enzyme
+              </label>
+              <span id="val-amylase" class="font-mono text-xs font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">6 mol</span>
+            </div>
+            <input id="slider-amylase" type="range" min="0" max="25" step="1" value="6" class="w-full" oninput="handleParamChange('amylase', this.value)">
+          </div>
+
+          <div id="control-group-maltase">
+            <div class="flex justify-between items-center mb-1">
+              <label for="slider-maltase" class="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-indigo-500"></span>
+                Maltase Enzyme
+              </label>
+              <span id="val-maltase" class="font-mono text-xs font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">6 mol</span>
+            </div>
+            <input id="slider-maltase" type="range" min="0" max="25" step="1" value="6" class="w-full" oninput="handleParamChange('maltase', this.value)">
+          </div>
+
+          <hr class="border-slate-100">
+
+          <!-- Inhibitors & Cofactors Section -->
+          <div class="space-y-3 pt-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Inhibitors &amp; Pre-Treatment</h3>
+              <!-- Target Enzyme Selector -->
+              <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-[11px]">
+                <button type="button" id="target-both" onclick="setInhibitorTarget('both')" class="px-2 py-0.5 font-semibold rounded-md bg-white text-slate-900 shadow-2xs">Both</button>
+                <button type="button" id="target-amylase" onclick="setInhibitorTarget('amylase')" class="px-2 py-0.5 font-medium rounded-md text-slate-600">Amy</button>
+                <button type="button" id="target-maltase" onclick="setInhibitorTarget('maltase')" class="px-2 py-0.5 font-medium rounded-md text-slate-600">Mal</button>
+              </div>
+            </div>
+
+            <!-- Competitive Inhibitor (0 to 25) -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label for="slider-comp" class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-xs bg-orange-500 rotate-45"></span>
+                  Competitive Inhibitor
+                </label>
+                <span id="val-comp" class="font-mono text-xs font-bold text-orange-800 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">0 mol</span>
+              </div>
+              <input id="slider-comp" type="range" min="0" max="25" step="1" value="0" class="w-full" oninput="handleParamChange('comp', this.value)">
+            </div>
+
+            <!-- Non-Competitive (Allosteric) Inhibitor (0 to 25) -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label for="slider-noncomp" class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-fuchsia-600"></span>
+                  Non-Competitive (Allosteric)
+                </label>
+                <span id="val-noncomp" class="font-mono text-xs font-bold text-fuchsia-800 bg-fuchsia-50 px-2 py-0.5 rounded-md border border-fuchsia-200">0 mol</span>
+              </div>
+              <input id="slider-noncomp" type="range" min="0" max="25" step="1" value="0" class="w-full" oninput="handleParamChange('noncomp', this.value)">
+            </div>
+
+            <!-- Pre-Denature (Boil at 100°C then cool) Toggle -->
+            <div class="flex items-center justify-between bg-rose-50/70 border border-rose-200 rounded-xl px-3 py-2.5">
+              <div>
+                <div class="text-xs font-bold text-rose-900">Pre-Boil Enzyme (100°C &rarr; Cool)</div>
+                <div class="text-[11px] text-rose-700">Irreversibly unfolds active sites beforehand</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input id="toggle-preboil" type="checkbox" class="sr-only peer" onchange="togglePreBoil(this.checked)">
+                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enzyme Structural Status Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Site Population</h3>
+            <span id="enzyme-pop-summary" class="text-[11px] font-mono font-semibold text-slate-600">100% Active</span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-700">Amylase (Opt: 37°C, pH 7.0)</span>
+            <span id="status-amylase" class="px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              100% Active
+            </span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-700">Maltase (Opt: 37°C, pH 6.5)</span>
+            <span id="status-maltase" class="px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              98% Active
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT COLUMN: Reaction Chamber, Live Graph & Data Tables (8 cols) -->
+      <div class="lg:col-span-8 space-y-6">
+
+        <!-- 1. Molecular Reaction Chamber (Canvas) -->
+        <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+          <div class="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <h2 class="text-sm font-bold text-slate-900">Molecular Reaction Chamber</h2>
+              <span id="chamber-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Optimal Activity
+              </span>
+            </div>
+
+            <!-- Live Molecule Counters -->
+            <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+              <div class="flex items-center gap-1.5 bg-amber-50 text-amber-900 px-2.5 py-1 rounded-lg border border-amber-200">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                Starch: <strong id="count-starch">40</strong>
+              </div>
+              <div class="flex items-center gap-1.5 bg-teal-50 text-teal-900 px-2.5 py-1 rounded-lg border border-teal-200">
+                <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                Maltose: <strong id="count-maltose">0</strong>
+              </div>
+              <div class="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 px-2.5 py-1 rounded-lg border border-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Glucose: <strong id="count-glucose">0</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Responsive Canvas Wrapper -->
+          <div id="chamber-container" class="relative w-full h-72 sm:h-80 chamber-grid">
+            <canvas id="reaction-canvas" class="w-full h-full block"></canvas>
+            <!-- Overlay Enzyme State Pills inside Chamber -->
+            <div class="absolute bottom-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+              <div class="flex flex-wrap items-center gap-1.5 bg-slate-900/80 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg border border-slate-700 text-[11px] font-mono">
+                <span class="text-emerald-400">Active: <strong id="chamber-enz-active">12</strong></span>
+                <span class="text-slate-500">|</span>
+                <span class="text-orange-400">Inhibited: <strong id="chamber-enz-inhib">0</strong></span>
+                <span class="text-slate-500">|</span>
+                <span class="text-rose-400">Denatured: <strong id="chamber-enz-denat">0</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visual Key / Legend -->
+          <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+            <div class="flex flex-wrap items-center gap-3.5">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="inline-flex gap-0.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                </span>
+                Starch
+              </span>
+              <span class="inline-flex items-center gap-1.5">
+                <span class="inline-flex gap-0.5">
+                  <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                  <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                </span>
+                Maltose
+              </span>
+              <span class="inline-flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                Glucose
+              </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-3.5">
+              <span class="inline-flex items-center gap-1">
+                <span class="w-3 h-3 rounded-full bg-sky-400 inline-block"></span>
+                Amylase
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <span class="w-3 h-3 rounded-full bg-indigo-400 inline-block"></span>
+                Maltase
+              </span>
+              <span class="inline-flex items-center gap-1 text-orange-700 font-medium">
+                <span class="w-2.5 h-2.5 rotate-45 bg-orange-500 inline-block"></span>
+                Comp. Inhib.
+              </span>
+              <span class="inline-flex items-center gap-1 text-fuchsia-700 font-medium">
+                <span class="w-2.5 h-2.5 rounded-full bg-fuchsia-600 inline-block"></span>
+                Allosteric
+              </span>
+              <span class="inline-flex items-center gap-1 text-rose-600 font-medium">
+                <span class="w-3 h-1 rounded-full bg-rose-400 inline-block"></span>
+                Denatured
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Real-Time Concentration vs. Time Graph with Interactive Hover Tooltip -->
+        <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Concentration vs. Time Graph</h2>
+              <p class="text-xs text-slate-500">Hover over the graph to inspect exact molecule counts at any timestamp</p>
+            </div>
+            <!-- Calculated Reaction Rates -->
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <div class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+                <span class="text-slate-500">Starch Rate:</span>
+                <strong id="rate-starch" class="font-mono text-amber-700 ml-1">0.00 mol/s</strong>
+              </div>
+              <div class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+                <span class="text-slate-500">Maltose Net:</span>
+                <strong id="rate-maltose" class="font-mono text-teal-700 ml-1">0.00 mol/s</strong>
+              </div>
+              <div class="bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+                <span class="text-slate-500">Glucose Rate:</span>
+                <strong id="rate-glucose" class="font-mono text-emerald-700 ml-1">0.00 mol/s</strong>
+              </div>
+            </div>
+          </div>
+
+          <div id="chart-container" class="w-full h-64 relative">
+            <canvas id="kinetics-chart" class="w-full h-full block cursor-crosshair"></canvas>
+            <!-- Interactive Hover Tooltip -->
+            <div id="chart-tooltip" class="hidden absolute z-10 pointer-events-none bg-slate-900/95 text-white text-xs rounded-xl px-3 py-2 shadow-lg border border-slate-700 font-mono space-y-1">
+              <div class="text-slate-400 font-sans font-semibold border-b border-slate-700 pb-1">Time: <span id="tt-time" class="text-white">0.0s</span></div>
+              <div class="text-amber-300">Starch: <strong id="tt-starch">0</strong></div>
+              <div class="text-teal-300">Maltose: <strong id="tt-maltose">0</strong></div>
+              <div class="text-emerald-300">Glucose: <strong id="tt-glucose">0</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Time-Series Data Log & Trial Comparison Table -->
+        <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+          <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Lab Data &amp; Trial Comparison Log</h2>
+              <p class="text-xs text-slate-500">Auto-logged every 5 seconds &amp; multi-trial parameter comparison</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="recordCurrentTrial()"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Save Trial to Comparison Log
+              </button>
+              <button type="button" onclick="exportCSV()"
+                class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition">
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          <!-- Current Run Time-Series Table (5-second intervals) -->
+          <div class="p-5 border-b border-slate-200">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Current Run Timestamped Log (5s Intervals)</h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+              <table class="w-full text-left border-collapse text-xs font-mono">
+                <thead>
+                  <tr id="ts-header-row" class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <th class="py-2 px-2.5 font-sans font-semibold sticky left-0 bg-slate-50">Molecule</th>
+                    <th class="py-2 px-2.5">0s</th>
+                    <th class="py-2 px-2.5">5s</th>
+                    <th class="py-2 px-2.5">10s</th>
+                    <th class="py-2 px-2.5">15s</th>
+                    <th class="py-2 px-2.5">20s</th>
+                    <th class="py-2 px-2.5">25s</th>
+                    <th class="py-2 px-2.5">30s</th>
+                    <th class="py-2 px-2.5">35s</th>
+                    <th class="py-2 px-2.5">40s</th>
+                    <th class="py-2 px-2.5">45s</th>
+                    <th class="py-2 px-2.5">50s</th>
+                    <th class="py-2 px-2.5">55s</th>
+                    <th class="py-2 px-2.5">60s</th>
+                  </tr>
+                </thead>
+                <tbody id="ts-body" class="divide-y divide-slate-100">
+                  <!-- Populated dynamically by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Saved Trials Comparison Table -->
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-2.5">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Saved Comparison Trials</h3>
+              <button type="button" onclick="clearSavedTrials()" class="text-xs text-slate-400 hover:text-rose-600 transition">Clear All</button>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <th class="py-2.5 px-2.5 font-semibold">#</th>
+                    <th class="py-2.5 px-2.5 font-semibold">Mode</th>
+                    <th class="py-2.5 px-2.5 font-semibold">Temp / pH</th>
+                    <th class="py-2.5 px-2.5 font-semibold">Substr (S/M)</th>
+                    <th class="py-2.5 px-2.5 font-semibold">Enz (A/M)</th>
+                    <th class="py-2.5 px-2.5 font-semibold">Inhib (C/NC)</th>
+                    <th class="py-2.5 px-2.5 font-semibold">End (S/M/G)</th>
+                    <th class="py-2.5 px-2.5 font-semibold">Product Rate</th>
+                  </tr>
+                </thead>
+                <tbody id="saved-trials-body" class="divide-y divide-slate-100 font-mono">
+                  <tr id="empty-trials-row">
+                    <td colspan="8" class="py-6 px-4 text-center font-sans text-slate-400">
+                      No trials saved yet. Run a simulation and click <strong>"Save Trial to Comparison Log"</strong> to compare parameters.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 3: DENATURATION & OPTIMAL CURVE EXPLORER (Batch Sweep) -->
+  <section id="view-sweep" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Batch Kinetics Sweep</span>
+          <h2 class="text-xl font-bold text-slate-900 mt-0.5">Denaturation &amp; Optimal Curve Explorer</h2>
+          <p class="text-xs sm:text-sm text-slate-500">Run a multi-trial parameter sweep across Temperature (0°C–80°C) or pH (1.0–14.0) to visualize enzyme activity bell curves.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Sweep Variable Selector -->
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs">
+            <button type="button" id="sweep-var-temp" onclick="setSweepVariable('temp')"
+              class="px-3 py-1.5 font-semibold rounded-lg bg-white text-slate-900 shadow-2xs transition">
+              Rate vs. Temperature (0–80°C)
+            </button>
+            <button type="button" id="sweep-var-ph" onclick="setSweepVariable('ph')"
+              class="px-3 py-1.5 font-medium rounded-lg text-slate-600 hover:text-slate-900 transition">
+              Rate vs. pH (1–14)
+            </button>
+          </div>
+
+          <!-- Pre-Boil Toggle for Sweep -->
+          <label class="inline-flex items-center gap-2 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl cursor-pointer text-xs font-semibold text-rose-900">
+            <input id="sweep-preboil" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500">
+            <span>Pre-Boil Enzyme (Denatured)</span>
+          </label>
+
+          <button type="button" onclick="runBatchSweep(true)"
+            class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition">
+            Run Animated Sweep
+          </button>
+          <button type="button" onclick="runBatchSweep(false)"
+            class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold border border-slate-200 transition">
+            Instant Plot
+          </button>
+        </div>
+      </div>
+
+      <!-- Sweep Chart & Summary Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-8 bg-slate-50 rounded-2xl border border-slate-200 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 id="sweep-chart-title" class="text-sm font-bold text-slate-900">Initial Reaction Rate (mol/s) vs. Temperature (°C)</h3>
+            <div class="flex items-center gap-4 text-xs">
+              <span class="inline-flex items-center gap-1.5 font-semibold text-sky-700">
+                <span class="w-3 h-1 bg-sky-500 rounded-full"></span> Amylase Rate
+              </span>
+              <span class="inline-flex items-center gap-1.5 font-semibold text-indigo-700">
+                <span class="w-3 h-1 bg-indigo-500 rounded-full"></span> Maltase Rate
+              </span>
+            </div>
+          </div>
+          <div id="sweep-canvas-container" class="w-full h-72 relative">
+            <canvas id="sweep-chart" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 space-y-4">
+          <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Key Curve Insights</h3>
+            <div class="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
+              <div class="font-bold text-slate-900">Amylase Optimum</div>
+              <p class="text-slate-600">Peaks at <strong>37°C–40°C</strong> and <strong>pH 7.0</strong> (neutral saliva/pancreatic fluid). Denatures rapidly above 50°C or in strong stomach acid (pH &lt; 3).</p>
+            </div>
+            <div class="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
+              <div class="font-bold text-slate-900">Maltase Optimum</div>
+              <p class="text-slate-600">Peaks at <strong>37°C–40°C</strong> and slightly acidic <strong>pH 6.0–6.5</strong> (small intestine brush border).</p>
+            </div>
+            <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs space-y-1.5">
+              <div class="font-bold text-rose-900">Effect of Pre-Boiling</div>
+              <p class="text-rose-800">Toggle <strong>"Pre-Boil Enzyme"</strong> and run the sweep to see a flat zero-activity baseline across all temperatures and pH values due to irreversible tertiary structure loss.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EDUCATIONAL LAB GUIDE VIEW (Tab 4) -->
+  <section id="view-guide" class="hidden max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-2xs space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Biology Lab Background</span>
+          <h2 class="text-2xl font-bold text-slate-900 mt-1">Enzyme Kinetics, Inhibition &amp; Denaturation</h2>
+        </div>
+        <button type="button" onclick="switchMode('full')"
+          class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold transition">
+          &larr; Back to Simulation
+        </button>
+      </div>
+
+      <div class="prose prose-slate max-w-none text-sm sm:text-base text-slate-600 space-y-5 leading-relaxed">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2">1. Sequential Starch Hydrolysis</h3>
+          <p>
+            Enzymes lower the <strong>activation energy (E<sub>a</sub>)</strong> of biochemical reactions by binding specific substrates at their three-dimensional <strong>active site</strong>:
+          </p>
+          <ul class="list-disc pl-5 space-y-1.5 mt-2">
+            <li><strong class="text-sky-700">Step 1 (Amylase):</strong> Cleaves 4-unit <strong>Starch</strong> polysaccharides into two 2-unit <strong>Maltose</strong> disaccharides.</li>
+            <li><strong class="text-indigo-700">Step 2 (Maltase):</strong> Hydrolyzes each <strong>Maltose</strong> molecule into two individual <strong>Glucose</strong> monosaccharides.</li>
+          </ul>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-orange-200 bg-orange-50/40 p-4">
+            <h4 class="font-bold text-orange-950 mb-1.5">Competitive Inhibition</h4>
+            <p class="text-sm text-slate-700">
+              A competitive inhibitor mimics the substrate's shape and binds directly inside the enzyme's <strong>active site</strong>, physically blocking Starch or Maltose. Because binding is reversible, <strong>increasing substrate concentration</strong> outcompetes the inhibitor and restores V<sub>max</sub>.
+            </p>
+          </div>
+          <div class="rounded-xl border border-fuchsia-200 bg-fuchsia-50/40 p-4">
+            <h4 class="font-bold text-fuchsia-950 mb-1.5">Non-Competitive (Allosteric) Inhibition</h4>
+            <p class="text-sm text-slate-700">
+              A non-competitive inhibitor binds to an <strong>allosteric site</strong> away from the active site, inducing a conformational shift that warps the active site notch. Adding extra substrate <strong>cannot</strong> overcome non-competitive inhibition.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-slate-200 p-4">
+            <h4 class="font-bold text-slate-900 mb-1.5">Temperature &amp; Irreversible Denaturation</h4>
+            <p class="text-sm text-slate-600">
+              Rising temperature increases molecular collision frequency up to ~37°C–40°C. Above 45°C–50°C (or when <strong>Pre-Boiled</strong>), thermal energy breaks hydrogen and ionic bonds, permanently unraveling the protein into an inactive polypeptide ribbon.
+            </p>
+          </div>
+          <div class="rounded-xl border border-slate-200 p-4">
+            <h4 class="font-bold text-slate-900 mb-1.5">pH Level &amp; Active Site Charge</h4>
+            <p class="text-sm text-slate-600">
+              Amylase functions best at <strong>pH 7.0</strong> while Maltase peaks around <strong>pH 6.0–6.5</strong>. Extreme H<sup>+</sup> or OH<sup>&minus;</sup> concentrations alter R-group ionization in the active site, reducing substrate affinity and denaturing the enzyme.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    /**
+     * =========================================================================
+     * COMPREHENSIVE ENZYME KINETICS SIMULATION ENGINE
+     * Models:
+     *   1. Full Pathway: Starch --(Amylase)--> 2 Maltose --(Maltase)--> 4 Glucose
+     *   2. Single Enzyme Mode: Isolated Amylase Only or Maltase Only
+     *   3. Competitive & Non-Competitive (Allosteric) Inhibition
+     *   4. Temperature Q10 Kinetics, pH Bell Curves, & Irreversible Thermal Denaturation
+     *   5. Batch Sweep Curve Explorer (Rate vs. Temp / Rate vs. pH)
+     * =========================================================================
+     */
+
+    const REAL_SECONDS_PER_30_SIM = 10.0;
+    const SIM_TIME_SCALE = 3.0; // 3.0 simulated seconds per 1.0 real second at 1x
+
+    const state = {
+      mode: 'full',              // 'full' | 'single' | 'sweep' | 'guide'
+      isolatedEnzyme: 'amylase', // 'amylase' | 'maltase' (for Single Enzyme mode)
+      running: false,
+      simTime: 0.0,
+      maxDuration: 60.0,         // 30, 60, 90, or 0 (Continuous)
+      speedMultiplier: 1,
+
+      // Experimental parameters
+      temp: 37,
+      ph: 7.0,
+      initStarch: 40,
+      initMaltose: 0,
+      amylaseUnits: 6,
+      maltaseUnits: 6,
+
+      // Inhibitors & Pre-Denaturation
+      compInhibUnits: 0,
+      nonCompInhibUnits: 0,
+      inhibitorTarget: 'both',   // 'both' | 'amylase' | 'maltase'
+      preBoiled: false,
+
+      // Dynamic concentrations (molecule counts)
+      starch: 40.0,
+      maltose: 0.0,
+      glucose: 0.0,
+
+      // Cumulative irreversible thermal denaturation [0..1]
+      amylaseThermalDamage: 0.0,
+      maltaseThermalDamage: 0.0,
+
+      // Time-series history & 5-second interval snapshots
+      history: [],
+      snapshots: {},
+      savedTrials: [],
+
+      // Batch Sweep state
+      sweepVar: 'temp',
+      sweepData: [],
+      sweepAnimTimer: null
+    };
+
+    // Visual particles for HTML5 reaction chamber
+    let particles = {
+      starch: [],
+      maltose: [],
+      glucose: [],
+      amylase: [],
+      maltase: [],
+      compInhib: [],
+      nonCompInhib: []
+    };
+
+    // Canvas references
+    const chamberCanvas = document.getElementById('reaction-canvas');
+    const chamberCtx = chamberCanvas.getContext('2d');
+    const chartCanvas = document.getElementById('kinetics-chart');
+    const chartCtx = chartCanvas.getContext('2d');
+    const sweepCanvas = document.getElementById('sweep-chart');
+    const sweepCtx = sweepCanvas.getContext('2d');
+
+    let lastFrameTime = null;
+    let toastTimer = null;
+
+    // --- UI Toast Helper (Zero pop-ups/alerts) ---
+    function showToast(msg) {
+      const banner = document.getElementById('toast-banner');
+      const text = document.getElementById('toast-message');
+      text.textContent = msg;
+      banner.classList.remove('translate-y-20', 'opacity-0');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        banner.classList.add('translate-y-20', 'opacity-0');
+      }, 2800);
+    }
+
+    // --- Top Navigation Mode Switcher ---
+    function switchMode(newMode) {
+      state.mode = newMode;
+      const simView = document.getElementById('view-sim');
+      const sweepView = document.getElementById('view-sweep');
+      const guideView = document.getElementById('view-guide');
+
+      simView.classList.add('hidden');
+      sweepView.classList.add('hidden');
+      guideView.classList.add('hidden');
+
+      ['full', 'single', 'sweep', 'guide'].forEach(m => {
+        const btn = document.getElementById(`tab-${m}-btn`);
+        if (m === newMode) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-xs transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition';
+        }
+      });
+
+      const singleSelector = document.getElementById('single-enzyme-selector');
+
+      if (newMode === 'full' || newMode === 'single') {
+        simView.classList.remove('hidden');
+        if (newMode === 'single') {
+          singleSelector.classList.remove('hidden');
+          applySingleEnzymeIsolationUI();
+        } else {
+          singleSelector.classList.add('hidden');
+          restoreFullPathwayUI();
+        }
+        resetSimulation(false);
+        resizeCanvases();
+      } else if (newMode === 'sweep') {
+        state.running = false;
+        updateTransportButton();
+        sweepView.classList.remove('hidden');
+        resizeCanvases();
+        if (state.sweepData.length === 0) {
+          runBatchSweep(false);
+        } else {
+          drawSweepChart();
+        }
+      } else if (newMode === 'guide') {
+        state.running = false;
+        updateTransportButton();
+        guideView.classList.remove('hidden');
+      }
+    }
+
+    function setIsolatedEnzyme(enz) {
+      state.isolatedEnzyme = enz;
+      const btnAmy = document.getElementById('iso-amylase-btn');
+      const btnMal = document.getElementById('iso-maltase-btn');
+      if (enz === 'amylase') {
+        btnAmy.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-600 text-white shadow-2xs transition';
+        btnMal.className = 'px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+        if (state.initStarch === 0) {
+          state.initStarch = 40;
+          document.getElementById('slider-starch').value = 40;
+          document.getElementById('val-starch').textContent = '40 mol';
+        }
+        state.initMaltose = 0;
+        document.getElementById('slider-maltose').value = 0;
+        document.getElementById('val-maltose').textContent = '0 mol';
+      } else {
+        btnMal.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-2xs transition';
+        btnAmy.className = 'px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+        state.initStarch = 0;
+        document.getElementById('slider-starch').value = 0;
+        document.getElementById('val-starch').textContent = '0 mol';
+        if (state.initMaltose === 0) {
+          state.initMaltose = 40;
+          document.getElementById('slider-maltose').value = 40;
+          document.getElementById('val-maltose').textContent = '40 mol';
+        }
+      }
+      applySingleEnzymeIsolationUI();
+      resetSimulation(false);
+    }
+
+    function applySingleEnzymeIsolationUI() {
+      const isAmy = state.isolatedEnzyme === 'amylase';
+      document.getElementById('pill-glucose').classList.toggle('opacity-35', isAmy);
+      document.getElementById('arrow-maltase').classList.toggle('opacity-35', isAmy);
+      document.getElementById('pill-starch').classList.toggle('opacity-35', !isAmy);
+      document.getElementById('arrow-amylase').classList.toggle('opacity-35', !isAmy);
+
+      document.getElementById('control-group-maltase').classList.toggle('opacity-45', isAmy);
+      document.getElementById('control-group-amylase').classList.toggle('opacity-45', !isAmy);
+    }
+
+    function restoreFullPathwayUI() {
+      ['pill-glucose', 'arrow-maltase', 'pill-starch', 'arrow-amylase', 'control-group-maltase', 'control-group-amylase']
+        .forEach(id => document.getElementById(id).classList.remove('opacity-35', 'opacity-45'));
+    }
+
+    // --- Biochemical Rate & Enzyme Activity Functions ---
+
+    function getTempKineticFactor(temp) {
+      if (temp <= 40) {
+        return Math.max(0.06, Math.pow(2.15, (temp - 37) / 10));
+      } else {
+        const peak = Math.pow(2.15, (40 - 37) / 10);
+        const drop = Math.max(0, 1 - (temp - 40) / 22); // Drops to 0 by 62°C
+        return peak * drop;
+      }
+    }
+
+    function getPhActivityFactor(ph, optimalPh, width) {
+      const diff = ph - optimalPh;
+      const factor = Math.exp(-(diff * diff) / (2 * width * width));
+      return factor < 0.03 ? 0 : factor;
+    }
+
+    /**
+     * Computes structural integrity & active/inhibited/denatured fractions for Amylase & Maltase
+     */
+    function getEnzymeStatusMetrics(tempOverride = null, phOverride = null, preBoilOverride = null) {
+      const T = tempOverride !== null ? tempOverride : state.temp;
+      const pH = phOverride !== null ? phOverride : state.ph;
+      const boiled = preBoilOverride !== null ? preBoilOverride : state.preBoiled;
+
+      if (boiled) {
+        return {
+          amyFolded: 0, malFolded: 0,
+          amyEffective: 0, malEffective: 0,
+          amyCompOcc: 0, amyNonCompOcc: 0,
+          malCompOcc: 0, malNonCompOcc: 0
+        };
+      }
+
+      const amyPhFactor = getPhActivityFactor(pH, 7.0, 1.35);
+      const malPhFactor = getPhActivityFactor(pH, 6.3, 1.25);
+
+      const instantHeatLoss = T > 45 ? Math.min(1, (T - 45) / 18) : 0;
+
+      const amyFolded = Math.max(0, (1 - Math.max(state.amylaseThermalDamage, instantHeatLoss)) * amyPhFactor);
+      const malFolded = Math.max(0, (1 - Math.max(state.maltaseThermalDamage, instantHeatLoss)) * malPhFactor);
+
+      // Determine inhibitor occupancy fractions
+      const targetAmy = state.inhibitorTarget === 'both' || state.inhibitorTarget === 'amylase';
+      const targetMal = state.inhibitorTarget === 'both' || state.inhibitorTarget === 'maltase';
+
+      // Non-competitive (allosteric) inhibitor binds independently of substrate
+      const KiNonComp = 6.0;
+      const amyNonCompOcc = targetAmy && state.nonCompInhibUnits > 0
+        ? state.nonCompInhibUnits / (KiNonComp + state.nonCompInhibUnits)
+        : 0;
+      const malNonCompOcc = targetMal && state.nonCompInhibUnits > 0
+        ? state.nonCompInhibUnits / (KiNonComp + state.nonCompInhibUnits)
+        : 0;
+
+      // Competitive inhibitor competes directly with substrate concentration [S]
+      const KiComp = 4.5;
+      const Km1 = 16.0;
+      const amyCompEff = targetAmy ? state.compInhibUnits : 0;
+      // Apparent Km increases by (1 + [I]/Ki)
+      const amySubstrateWin = state.starch > 0
+        ? (state.starch / (Km1 * (1 + amyCompEff / KiComp) + state.starch)) / (state.starch / (Km1 + state.starch))
+        : (amyCompEff > 0 ? 1 / (1 + amyCompEff / KiComp) : 1);
+      const amyCompOcc = Math.max(0, Math.min(1, 1 - amySubstrateWin));
+
+      const Km2 = 18.0;
+      const malCompEff = targetMal ? state.compInhibUnits : 0;
+      const malSubstrateWin = state.maltose > 0
+        ? (state.maltose / (Km2 * (1 + malCompEff / KiComp) + state.maltose)) / (state.maltose / (Km2 + state.maltose))
+        : (malCompEff > 0 ? 1 / (1 + malCompEff / KiComp) : 1);
+      const malCompOcc = Math.max(0, Math.min(1, 1 - malSubstrateWin));
+
+      const amyEffective = amyFolded * (1 - amyNonCompOcc) * (1 - amyCompOcc);
+      const malEffective = malFolded * (1 - malNonCompOcc) * (1 - malCompOcc);
+
+      return {
+        amyFolded, malFolded,
+        amyEffective, malEffective,
+        amyCompOcc, amyNonCompOcc,
+        malCompOcc, malNonCompOcc
+      };
+    }
+
+    // --- Parameter Controls & Presets ---
+    function handleParamChange(param, rawVal) {
+      const val = parseFloat(rawVal);
+
+      if (param === 'temp') {
+        state.temp = val;
+        document.getElementById('val-temp').textContent = `${val} °C`;
+      } else if (param === 'ph') {
+        state.ph = val;
+        document.getElementById('val-ph').textContent = `pH ${val.toFixed(1)}`;
+      } else if (param === 'starch') {
+        state.initStarch = val;
+        document.getElementById('val-starch').textContent = `${val} mol`;
+        if (state.simTime === 0) resetSimulation(false);
+        else {
+          // Allow adding extra substrate mid-run
+          state.starch = val;
+          syncSubstrateParticlesWithConcentrations();
+        }
+      } else if (param === 'maltose') {
+        state.initMaltose = val;
+        document.getElementById('val-maltose').textContent = `${val} mol`;
+        if (state.simTime === 0) resetSimulation(false);
+        else {
+          state.maltose = val;
+          syncSubstrateParticlesWithConcentrations();
+        }
+      } else if (param === 'amylase') {
+        state.amylaseUnits = val;
+        document.getElementById('val-amylase').textContent = `${val} mol`;
+        syncEnzymeAndInhibitorParticles();
+      } else if (param === 'maltase') {
+        state.maltaseUnits = val;
+        document.getElementById('val-maltase').textContent = `${val} mol`;
+        syncEnzymeAndInhibitorParticles();
+      } else if (param === 'comp') {
+        state.compInhibUnits = val;
+        document.getElementById('val-comp').textContent = `${val} mol`;
+        syncEnzymeAndInhibitorParticles();
+      } else if (param === 'noncomp') {
+        state.nonCompInhibUnits = val;
+        document.getElementById('val-noncomp').textContent = `${val} mol`;
+        syncEnzymeAndInhibitorParticles();
+      }
+
+      updateEnzymeStatusUI();
+      updateReadoutsAndTables();
+    }
+
+    function setInhibitorTarget(target) {
+      state.inhibitorTarget = target;
+      ['both', 'amylase', 'maltase'].forEach(t => {
+        const btn = document.getElementById(`target-${t}`);
+        if (t === target) {
+          btn.className = 'px-2 py-0.5 font-semibold rounded-md bg-white text-slate-900 shadow-2xs';
+        } else {
+          btn.className = 'px-2 py-0.5 font-medium rounded-md text-slate-600';
+        }
+      });
+      updateEnzymeStatusUI();
+    }
+
+    function togglePreBoil(checked) {
+      state.preBoiled = checked;
+      if (checked) {
+        state.amylaseThermalDamage = 1.0;
+        state.maltaseThermalDamage = 1.0;
+        showToast('Enzymes pre-boiled at 100°C: Active sites permanently denatured');
+      } else {
+        state.amylaseThermalDamage = 0.0;
+        state.maltaseThermalDamage = 0.0;
+        showToast('Fresh active enzymes loaded');
+      }
+      updateEnzymeStatusUI();
+    }
+
+    function applyPreset(presetKey) {
+      const presets = {
+        optimal:       { temp: 37, ph: 7.0, starch: 40, maltose: 0, amylase: 6, maltase: 6, comp: 0,  noncomp: 0,  boil: false, label: 'Optimal Conditions (37°C, pH 7.0)' },
+        comp_inhib:    { temp: 37, ph: 7.0, starch: 30, maltose: 0, amylase: 6, maltase: 6, comp: 16, noncomp: 0,  boil: false, label: 'Competitive Inhibition (Active Site Blocked)' },
+        noncomp_inhib: { temp: 37, ph: 7.0, starch: 40, maltose: 0, amylase: 6, maltase: 6, comp: 0,  noncomp: 14, boil: false, label: 'Allosteric Non-Competitive Inhibition' },
+        fever:         { temp: 70, ph: 7.0, starch: 40, maltose: 0, amylase: 6, maltase: 6, comp: 0,  noncomp: 0,  boil: false, label: 'High Heat Denaturation (70°C)' },
+        acid:          { temp: 37, ph: 2.0, starch: 40, maltose: 0, amylase: 6, maltase: 6, comp: 0,  noncomp: 0,  boil: false, label: 'Stomach Acid Environment (pH 2.0)' }
+      };
+
+      const p = presets[presetKey];
+      if (!p) return;
+
+      if (state.mode !== 'full') switchMode('full');
+
+      state.temp = p.temp;
+      state.ph = p.ph;
+      state.initStarch = p.starch;
+      state.initMaltose = p.maltose;
+      state.amylaseUnits = p.amylase;
+      state.maltaseUnits = p.maltase;
+      state.compInhibUnits = p.comp;
+      state.nonCompInhibUnits = p.noncomp;
+      state.preBoiled = p.boil;
+
+      document.getElementById('slider-temp').value = p.temp;
+      document.getElementById('val-temp').textContent = `${p.temp} °C`;
+      document.getElementById('slider-ph').value = p.ph;
+      document.getElementById('val-ph').textContent = `pH ${p.ph.toFixed(1)}`;
+      document.getElementById('slider-starch').value = p.starch;
+      document.getElementById('val-starch').textContent = `${p.starch} mol`;
+      document.getElementById('slider-maltose').value = p.maltose;
+      document.getElementById('val-maltose').textContent = `${p.maltose} mol`;
+      document.getElementById('slider-amylase').value = p.amylase;
+      document.getElementById('val-amylase').textContent = `${p.amylase} mol`;
+      document.getElementById('slider-maltase').value = p.maltase;
+      document.getElementById('val-maltase').textContent = `${p.maltase} mol`;
+      document.getElementById('slider-comp').value = p.comp;
+      document.getElementById('val-comp').textContent = `${p.comp} mol`;
+      document.getElementById('slider-noncomp').value = p.noncomp;
+      document.getElementById('val-noncomp').textContent = `${p.noncomp} mol`;
+      document.getElementById('toggle-preboil').checked = p.boil;
+
+      resetSimulation(false);
+      showToast(`Loaded preset: ${p.label}`);
+    }
+
+    function setSpeed(mult) {
+      state.speedMultiplier = mult;
+      [1, 2, 4].forEach(s => {
+        const btn = document.getElementById(`speed-${s}`);
+        btn.className = s === mult
+          ? 'px-2 py-1 text-xs font-semibold rounded-md bg-white text-slate-900 shadow-2xs'
+          : 'px-2 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900';
+      });
+    }
+
+    function setDuration(sec) {
+      state.maxDuration = sec;
+      [30, 60, 90, 0].forEach(d => {
+        const btn = document.getElementById(`dur-${d}`);
+        btn.className = d === sec
+          ? 'px-2 py-0.5 font-semibold rounded-md bg-white text-slate-900 shadow-2xs'
+          : 'px-2 py-0.5 font-medium rounded-md text-slate-600 hover:text-slate-900';
+      });
+      document.getElementById('sim-duration-label').textContent = sec === 0 ? '/ Continuous' : `/ ${sec.toFixed(1)} s`;
+      updateReadoutsAndTables();
+    }
+
+    // --- Simulation Lifecycle: Run, Pause, Step +1s, Reset ---
+    function toggleSimulation() {
+      if (state.maxDuration > 0 && state.simTime >= state.maxDuration) {
+        resetSimulation(false);
+      }
+      state.running = !state.running;
+      updateTransportButton();
+      if (state.running) {
+        lastFrameTime = performance.now();
+      }
+    }
+
+    function stepOneSecond() {
+      state.running = false;
+      updateTransportButton();
+      if (state.maxDuration > 0 && state.simTime >= state.maxDuration) {
+        showToast('Trial duration reached. Click Reset to start a new run.');
+        return;
+      }
+      // Advance in 5 sub-steps of 0.2s for smooth kinetics accuracy
+      for (let i = 0; i < 5; i++) {
+        stepSimulation(0.2);
+      }
+      drawKineticsChart();
+    }
+
+    function updateTransportButton() {
+      const btnText = document.getElementById('btn-start-text');
+      const iconPlay = document.getElementById('icon-play');
+      const iconPause = document.getElementById('icon-pause');
+      const btn = document.getElementById('btn-start-pause');
+
+      if (state.running) {
+        btnText.textContent = 'Pause';
+        iconPlay.classList.add('hidden');
+        iconPause.classList.remove('hidden');
+        btn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
+        btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+      } else {
+        const isMidRun = state.simTime > 0 && (state.maxDuration === 0 || state.simTime < state.maxDuration);
+        btnText.textContent = isMidRun ? 'Resume' : 'Run';
+        iconPlay.classList.remove('hidden');
+        iconPause.classList.add('hidden');
+        btn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+        btn.classList.add('bg-sky-600', 'hover:bg-sky-700');
+      }
+    }
+
+    function resetSimulation(notify = true) {
+      state.running = false;
+      state.simTime = 0.0;
+      state.starch = state.initStarch;
+      state.maltose = state.initMaltose;
+      state.glucose = 0.0;
+      state.amylaseThermalDamage = state.preBoiled ? 1.0 : 0.0;
+      state.maltaseThermalDamage = state.preBoiled ? 1.0 : 0.0;
+
+      state.history = [{ t: 0, starch: state.starch, maltose: state.maltose, glucose: 0 }];
+      state.snapshots = {
+        0: { starch: Math.round(state.starch), maltose: Math.round(state.maltose), glucose: 0 }
+      };
+
+      initAllParticles();
+      updateTransportButton();
+      updateEnzymeStatusUI();
+      updateReadoutsAndTables();
+      drawKineticsChart();
+      if (notify) showToast('Simulation reset to t = 0.0 s');
+    }
+
+    // --- Particle System Initialization & Synchronization ---
+    function randomVelocity() {
+      const angle = Math.random() * Math.PI * 2;
+      const base = 0.65 + Math.random() * 0.65;
+      return { vx: Math.cos(angle) * base, vy: Math.sin(angle) * base };
+    }
+
+    function createParticle(type) {
+      const w = chamberCanvas.width || 600;
+      const h = chamberCanvas.height || 300;
+      const pad = 26;
+      const vel = randomVelocity();
+      return {
+        type,
+        x: pad + Math.random() * Math.max(40, w - pad * 2),
+        y: pad + Math.random() * Math.max(40, h - pad * 2),
+        vx: vel.vx,
+        vy: vel.vy,
+        angle: Math.random() * Math.PI * 2,
+        vAngle: (Math.random() - 0.5) * 0.04,
+        flash: 0
+      };
+    }
+
+    function initAllParticles() {
+      particles.starch = [];
+      particles.maltose = [];
+      particles.glucose = [];
+      particles.amylase = [];
+      particles.maltase = [];
+      particles.compInhib = [];
+      particles.nonCompInhib = [];
+
+      for (let i = 0; i < Math.round(state.starch); i++) particles.starch.push(createParticle('starch'));
+      for (let i = 0; i < Math.round(state.maltose); i++) particles.maltose.push(createParticle('maltose'));
+      for (let i = 0; i < Math.round(state.glucose); i++) particles.glucose.push(createParticle('glucose'));
+      syncEnzymeAndInhibitorParticles();
+    }
+
+    function syncEnzymeAndInhibitorParticles() {
+      const activeAmyCount = (state.mode === 'single' && state.isolatedEnzyme === 'maltase') ? 0 : state.amylaseUnits;
+      const activeMalCount = (state.mode === 'single' && state.isolatedEnzyme === 'amylase') ? 0 : state.maltaseUnits;
+
+      const adjustArray = (arr, target, type) => {
+        while (arr.length < target) arr.push(createParticle(type));
+        while (arr.length > target) arr.pop();
+      };
+
+      adjustArray(particles.amylase, activeAmyCount, 'amylase');
+      adjustArray(particles.maltase, activeMalCount, 'maltase');
+      adjustArray(particles.compInhib, state.compInhibUnits, 'compInhib');
+      adjustArray(particles.nonCompInhib, state.nonCompInhibUnits, 'nonCompInhib');
+    }
+
+    function syncSubstrateParticlesWithConcentrations() {
+      const targetStarch = Math.max(0, Math.round(state.starch));
+      const targetMaltose = Math.max(0, Math.round(state.maltose));
+      const targetGlucose = Math.max(0, Math.round(state.glucose));
+
+      while (particles.starch.length > targetStarch && particles.starch.length > 0) {
+        const idx = Math.floor(Math.random() * particles.starch.length);
+        const removed = particles.starch.splice(idx, 1)[0];
+        if (particles.maltose.length < targetMaltose) {
+          const m1 = createParticle('maltose');
+          m1.x = removed.x - 6; m1.y = removed.y; m1.flash = 1.0;
+          particles.maltose.push(m1);
+        }
+        if (particles.maltose.length < targetMaltose) {
+          const m2 = createParticle('maltose');
+          m2.x = removed.x + 6; m2.y = removed.y; m2.flash = 1.0;
+          particles.maltose.push(m2);
+        }
+      }
+      while (particles.starch.length < targetStarch) particles.starch.push(createParticle('starch'));
+
+      while (particles.maltose.length > targetMaltose && particles.maltose.length > 0) {
+        const idx = Math.floor(Math.random() * particles.maltose.length);
+        const removed = particles.maltose.splice(idx, 1)[0];
+        if (particles.glucose.length < targetGlucose) {
+          const g1 = createParticle('glucose');
+          g1.x = removed.x - 5; g1.y = removed.y; g1.flash = 1.0;
+          particles.glucose.push(g1);
+        }
+        if (particles.glucose.length < targetGlucose) {
+          const g2 = createParticle('glucose');
+          g2.x = removed.x + 5; g2.y = removed.y; g2.flash = 1.0;
+          particles.glucose.push(g2);
+        }
+      }
+      while (particles.maltose.length < targetMaltose) particles.maltose.push(createParticle('maltose'));
+
+      while (particles.glucose.length > targetGlucose) particles.glucose.pop();
+      while (particles.glucose.length < targetGlucose) particles.glucose.push(createParticle('glucose'));
+    }
+
+    // --- Core Kinetics ODE Step ---
+    function stepSimulation(dtSim) {
+      if (state.maxDuration > 0 && state.simTime >= state.maxDuration) {
+        state.simTime = state.maxDuration;
+        state.running = false;
+        updateTransportButton();
+        showToast(`Trial complete (${state.maxDuration}s). Save trial to log or adjust parameters.`);
+        return;
+      }
+
+      const prevTime = state.simTime;
+      state.simTime = state.maxDuration > 0
+        ? Math.min(state.maxDuration, state.simTime + dtSim)
+        : state.simTime + dtSim;
+      const actualDt = state.simTime - prevTime;
+
+      // Irreversible thermal denaturation above 45°C
+      if (state.temp > 45) {
+        const heatRate = ((state.temp - 45) / 18) * 0.22;
+        state.amylaseThermalDamage = Math.min(1, state.amylaseThermalDamage + heatRate * actualDt);
+        state.maltaseThermalDamage = Math.min(1, state.maltaseThermalDamage + heatRate * actualDt);
+      }
+
+      const tempKinetic = getTempKineticFactor(state.temp);
+      const metrics = getEnzymeStatusMetrics();
+
+      const runAmylase = !(state.mode === 'single' && state.isolatedEnzyme === 'maltase');
+      const runMaltase = !(state.mode === 'single' && state.isolatedEnzyme === 'amylase');
+
+      // Step 1: Starch --(Amylase)--> 2 Maltose
+      if (runAmylase && state.starch > 0.01) {
+        const kcat1 = 0.34;
+        const km1 = 16.0;
+        const effAmylase = state.amylaseUnits * metrics.amyEffective * tempKinetic;
+        const v1 = (kcat1 * effAmylase * state.starch) / (km1 + state.starch);
+        const dStarch = Math.min(state.starch, v1 * actualDt);
+        state.starch -= dStarch;
+        state.maltose += dStarch * 2.0;
+      }
+
+      // Step 2: Maltose --(Maltase)--> 2 Glucose
+      if (runMaltase && state.maltose > 0.01) {
+        const kcat2 = 0.40;
+        const km2 = 18.0;
+        const effMaltase = state.maltaseUnits * metrics.malEffective * tempKinetic;
+        const v2 = (kcat2 * effMaltase * state.maltose) / (km2 + state.maltose);
+        const dMaltose = Math.min(state.maltose, v2 * actualDt);
+        state.maltose -= dMaltose;
+        state.glucose += dMaltose * 2.0;
+      }
+
+      // Record curve point every ~0.35s
+      const lastPoint = state.history[state.history.length - 1];
+      if (!lastPoint || state.simTime - lastPoint.t >= 0.35 || (state.maxDuration > 0 && state.simTime >= state.maxDuration)) {
+        state.history.push({
+          t: state.simTime,
+          starch: state.starch,
+          maltose: state.maltose,
+          glucose: state.glucose
+        });
+      }
+
+      // Record 5-second interval table snapshots up to 60s
+      for (let sec = 5; sec <= 60; sec += 5) {
+        if (prevTime < sec && state.simTime >= sec && !state.snapshots[sec]) {
+          state.snapshots[sec] = {
+            starch: Math.round(state.starch),
+            maltose: Math.round(state.maltose),
+            glucose: Math.round(state.glucose)
+          };
+        }
+      }
+
+      syncSubstrateParticlesWithConcentrations();
+      updateEnzymeStatusUI();
+      updateReadoutsAndTables();
+    }
+
+    // --- UI Updates & Readouts ---
+    function updateEnzymeStatusUI() {
+      const m = getEnzymeStatusMetrics();
+      const amyPct = Math.round(m.amyEffective * 100);
+      const malPct = Math.round(m.malEffective * 100);
+
+      const amyBadge = document.getElementById('status-amylase');
+      const malBadge = document.getElementById('status-maltase');
+      const chamberBadge = document.getElementById('chamber-badge');
+
+      const formatBadge = (el, pct, folded) => {
+        if (folded < 0.2) {
+          el.textContent = 'Denatured (0%)';
+          el.className = 'px-2 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-700 border border-rose-200';
+        } else if (pct >= 70) {
+          el.textContent = `${pct}% Active`;
+          el.className = 'px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        } else {
+          el.textContent = `${pct}% Inhibited/Slow`;
+          el.className = 'px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200';
+        }
+      };
+
+      formatBadge(amyBadge, amyPct, m.amyFolded);
+      formatBadge(malBadge, malPct, m.malFolded);
+
+      // Calculate discrete counts of Active, Inhibited, and Denatured enzymes in chamber
+      const totalAmy = particles.amylase.length;
+      const totalMal = particles.maltase.length;
+      const totalEnz = totalAmy + totalMal;
+
+      const denatAmy = Math.round(totalAmy * (1 - m.amyFolded));
+      const denatMal = Math.round(totalMal * (1 - m.malFolded));
+      const denatTotal = denatAmy + denatMal;
+
+      const foldedAmy = totalAmy - denatAmy;
+      const foldedMal = totalMal - denatMal;
+
+      const inhibAmy = Math.min(foldedAmy, Math.round(foldedAmy * (1 - (m.amyFolded > 0 ? m.amyEffective / m.amyFolded : 0))));
+      const inhibMal = Math.min(foldedMal, Math.round(foldedMal * (1 - (m.malFolded > 0 ? m.malEffective / m.malFolded : 0))));
+      const inhibTotal = inhibAmy + inhibMal;
+      const activeTotal = Math.max(0, totalEnz - denatTotal - inhibTotal);
+
+      document.getElementById('chamber-enz-active').textContent = activeTotal;
+      document.getElementById('chamber-enz-inhib').textContent = inhibTotal;
+      document.getElementById('chamber-enz-denat').textContent = denatTotal;
+      document.getElementById('enzyme-pop-summary').textContent = totalEnz > 0
+        ? `${Math.round((activeTotal / totalEnz) * 100)}% Active`
+        : 'No Enzymes';
+
+      if (denatTotal > 0 && activeTotal === 0 && totalEnz > 0) {
+        chamberBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Enzymes Denatured';
+        chamberBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200';
+      } else if (inhibTotal > 0) {
+        chamberBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Enzyme Inhibition Active';
+        chamberBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200';
+      } else if (state.temp < 15) {
+        chamberBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Low Thermal Kinetic Energy';
+        chamberBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200';
+      } else {
+        chamberBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Optimal Catalytic Activity';
+        chamberBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+      }
+    }
+
+    function updateReadoutsAndTables() {
+      document.getElementById('sim-clock').textContent = state.simTime.toFixed(1);
+      const pct = state.maxDuration > 0
+        ? Math.min(100, (state.simTime / state.maxDuration) * 100)
+        : ((state.simTime % 60) / 60) * 100;
+      document.getElementById('sim-progress').style.width = `${pct}%`;
+
+      document.getElementById('count-starch').textContent = Math.round(state.starch);
+      document.getElementById('count-maltose').textContent = Math.round(state.maltose);
+      document.getElementById('count-glucose').textContent = Math.round(state.glucose);
+
+      if (state.simTime > 0.2) {
+        const starchRate = Math.max(0, (state.initStarch - state.starch) / state.simTime);
+        const maltoseNet = (state.maltose - state.initMaltose) / state.simTime;
+        const glucoseRate = state.glucose / state.simTime;
+        document.getElementById('rate-starch').textContent = `${starchRate.toFixed(2)} mol/s`;
+        document.getElementById('rate-maltose').textContent = `${maltoseNet >= 0 ? '+' : ''}${maltoseNet.toFixed(2)} mol/s`;
+        document.getElementById('rate-glucose').textContent = `${glucoseRate.toFixed(2)} mol/s`;
+      } else {
+        document.getElementById('rate-starch').textContent = '0.00 mol/s';
+        document.getElementById('rate-maltose').textContent = '0.00 mol/s';
+        document.getElementById('rate-glucose').textContent = '0.00 mol/s';
+      }
+
+      // Render 5s interval table rows
+      const secs = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
+      const rows = [
+        { label: 'Starch', key: 'starch', bg: 'text-amber-800 bg-amber-50/50' },
+        { label: 'Maltose', key: 'maltose', bg: 'text-teal-800 bg-teal-50/50' },
+        { label: 'Glucose', key: 'glucose', bg: 'text-emerald-800 bg-emerald-50/50' }
+      ];
+
+      document.getElementById('ts-body').innerHTML = rows.map(r => `
+        <tr>
+          <td class="py-2 px-2.5 font-sans font-semibold sticky left-0 ${r.bg}">${r.label}</td>
+          ${secs.map(s => {
+            const snap = state.snapshots[s];
+            return snap
+              ? `<td class="py-2 px-2.5 text-slate-800">${snap[r.key]}</td>`
+              : `<td class="py-2 px-2.5 text-slate-300">—</td>`;
+          }).join('')}
+        </tr>
+      `).join('');
+    }
+
+    // --- Trial Comparison Logging & CSV Export ---
+    function recordCurrentTrial() {
+      const rateVal = (state.mode === 'single' && state.isolatedEnzyme === 'amylase')
+        ? ((state.maltose - state.initMaltose) / Math.max(0.1, state.simTime)).toFixed(2) + ' Mal/s'
+        : (state.glucose / Math.max(0.1, state.simTime)).toFixed(2) + ' Glu/s';
+
+      const modeLabel = state.mode === 'full'
+        ? 'Full'
+        : (state.isolatedEnzyme === 'amylase' ? 'Amy-Only' : 'Mal-Only');
+
+      const trial = {
+        id: state.savedTrials.length + 1,
+        mode: modeLabel,
+        env: `${state.temp}°C / pH ${state.ph.toFixed(1)}`,
+        substrates: `${state.initStarch} / ${state.initMaltose}`,
+        enzymes: `${state.amylaseUnits} / ${state.maltaseUnits}`,
+        inhibitors: `${state.compInhibUnits}C / ${state.nonCompInhibUnits}NC`,
+        endProducts: `${Math.round(state.starch)} / ${Math.round(state.maltose)} / ${Math.round(state.glucose)}`,
+        rate: state.simTime > 0.1 ? rateVal : '0.00/s'
+      };
+      state.savedTrials.push(trial);
+      renderSavedTrials();
+      showToast(`Saved Trial #${trial.id} to Comparison Log`);
+    }
+
+    function renderSavedTrials() {
+      const tbody = document.getElementById('saved-trials-body');
+      if (state.savedTrials.length === 0) {
+        tbody.innerHTML = `
+          <tr id="empty-trials-row">
+            <td colspan="8" class="py-6 px-4 text-center font-sans text-slate-400">
+              No trials saved yet. Run a simulation and click <strong>"Save Trial to Comparison Log"</strong> to compare parameters.
+            </td>
+          </tr>`;
+        return;
+      }
+
+      tbody.innerHTML = state.savedTrials.map(t => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="py-2.5 px-2.5 font-bold text-slate-700">#${t.id}</td>
+          <td class="py-2.5 px-2.5 font-sans font-medium text-slate-600">${t.mode}</td>
+          <td class="py-2.5 px-2.5">${t.env}</td>
+          <td class="py-2.5 px-2.5">${t.substrates}</td>
+          <td class="py-2.5 px-2.5">${t.enzymes}</td>
+          <td class="py-2.5 px-2.5">${t.inhibitors}</td>
+          <td class="py-2.5 px-2.5 font-semibold text-slate-800">${t.endProducts}</td>
+          <td class="py-2.5 px-2.5 font-bold text-emerald-700">${t.rate}</td>
+        </tr>
+      `).join('');
+    }
+
+    function clearSavedTrials() {
+      state.savedTrials = [];
+      renderSavedTrials();
+      showToast('Cleared saved comparison trials');
+    }
+
+    function exportCSV() {
+      let csv = 'Time (s),Starch,Maltose,Glucose,Temp (C),pH,Amylase,Maltase,Comp_Inhib,NonComp_Inhib,PreBoiled\n';
+      state.history.forEach(pt => {
+        csv += `${pt.t.toFixed(1)},${pt.starch.toFixed(2)},${pt.maltose.toFixed(2)},${pt.glucose.toFixed(2)},${state.temp},${state.ph},${state.amylaseUnits},${state.maltaseUnits},${state.compInhibUnits},${state.nonCompInhibUnits},${state.preBoiled}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `enzyme_lab_${state.temp}C_pH${state.ph}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('Exported CSV data file');
+    }
+
+    // --- Canvas Rendering: Molecular Reaction Chamber ---
+    function updateAndDrawChamber(dtReal) {
+      const w = chamberCanvas.width;
+      const h = chamberCanvas.height;
+      chamberCtx.clearRect(0, 0, w, h);
+
+      const thermalSpeed = (0.25 + (state.temp / 37) * 1.15) * (state.running ? state.speedMultiplier : 0.25);
+      const m = getEnzymeStatusMetrics();
+
+      const moveParticle = (p, margin) => {
+        p.x += p.vx * thermalSpeed * (dtReal * 60);
+        p.y += p.vy * thermalSpeed * (dtReal * 60);
+        p.angle += p.vAngle * thermalSpeed * (dtReal * 60);
+        if (p.flash > 0) p.flash = Math.max(0, p.flash - dtReal * 2.5);
+
+        if (p.x < margin) { p.x = margin; p.vx = Math.abs(p.vx); }
+        if (p.x > w - margin) { p.x = w - margin; p.vx = -Math.abs(p.vx); }
+        if (p.y < margin) { p.y = margin; p.vy = Math.abs(p.vy); }
+        if (p.y > h - margin) { p.y = h - margin; p.vy = -Math.abs(p.vy); }
+      };
+
+      // 1. Glucose (Emerald Green Monomer)
+      particles.glucose.forEach(p => {
+        moveParticle(p, 10);
+        chamberCtx.save();
+        chamberCtx.translate(p.x, p.y);
+        if (p.flash > 0) {
+          chamberCtx.shadowColor = '#34d399';
+          chamberCtx.shadowBlur = 12 * p.flash;
+        }
+        chamberCtx.fillStyle = '#10b981';
+        chamberCtx.strokeStyle = '#a7f3d0';
+        chamberCtx.lineWidth = 1.2;
+        chamberCtx.beginPath();
+        chamberCtx.arc(0, 0, 4.5, 0, Math.PI * 2);
+        chamberCtx.fill();
+        chamberCtx.stroke();
+        chamberCtx.restore();
+      });
+
+      // 2. Maltose (Teal/Cyan 2-unit Disaccharide)
+      particles.maltose.forEach(p => {
+        moveParticle(p, 14);
+        chamberCtx.save();
+        chamberCtx.translate(p.x, p.y);
+        chamberCtx.rotate(p.angle);
+        if (p.flash > 0) {
+          chamberCtx.shadowColor = '#2dd4bf';
+          chamberCtx.shadowBlur = 12 * p.flash;
+        }
+        chamberCtx.strokeStyle = '#99f6e4';
+        chamberCtx.lineWidth = 2;
+        chamberCtx.beginPath();
+        chamberCtx.moveTo(-4.5, 0);
+        chamberCtx.lineTo(4.5, 0);
+        chamberCtx.stroke();
+
+        chamberCtx.fillStyle = '#14b8a6';
+        [-4.5, 4.5].forEach(offset => {
+          chamberCtx.beginPath();
+          chamberCtx.arc(offset, 0, 4.5, 0, Math.PI * 2);
+          chamberCtx.fill();
+        });
+        chamberCtx.restore();
+      });
+
+      // 3. Starch (Gold/Amber 4-unit Polysaccharide)
+      particles.starch.forEach(p => {
+        moveParticle(p, 22);
+        chamberCtx.save();
+        chamberCtx.translate(p.x, p.y);
+        chamberCtx.rotate(p.angle);
+
+        chamberCtx.strokeStyle = '#fde68a';
+        chamberCtx.lineWidth = 2;
+        chamberCtx.beginPath();
+        chamberCtx.moveTo(-13.5, 0);
+        chamberCtx.lineTo(13.5, 0);
+        chamberCtx.stroke();
+
+        chamberCtx.fillStyle = '#f59e0b';
+        [-13.5, -4.5, 4.5, 13.5].forEach((offset, idx) => {
+          chamberCtx.beginPath();
+          chamberCtx.arc(offset, (idx % 2 === 0 ? -1.5 : 1.5), 4.5, 0, Math.PI * 2);
+          chamberCtx.fill();
+        });
+        chamberCtx.restore();
+      });
+
+      // 4. Free Competitive Inhibitors (Orange/Red Wedges)
+      particles.compInhib.forEach(p => {
+        moveParticle(p, 12);
+        chamberCtx.save();
+        chamberCtx.translate(p.x, p.y);
+        chamberCtx.rotate(p.angle);
+        chamberCtx.fillStyle = '#f97316';
+        chamberCtx.strokeStyle = '#fed7aa';
+        chamberCtx.lineWidth = 1.2;
+        chamberCtx.beginPath();
+        chamberCtx.moveTo(6, 0);
+        chamberCtx.lineTo(-5, -5);
+        chamberCtx.lineTo(-5, 5);
+        chamberCtx.closePath();
+        chamberCtx.fill();
+        chamberCtx.stroke();
+        chamberCtx.restore();
+      });
+
+      // 5. Free Non-Competitive Allosteric Inhibitors (Magenta Spheres)
+      particles.nonCompInhib.forEach(p => {
+        moveParticle(p, 12);
+        chamberCtx.save();
+        chamberCtx.translate(p.x, p.y);
+        chamberCtx.fillStyle = '#c026d3';
+        chamberCtx.strokeStyle = '#f5d0fe';
+        chamberCtx.lineWidth = 1.2;
+        chamberCtx.beginPath();
+        chamberCtx.arc(0, 0, 5, 0, Math.PI * 2);
+        chamberCtx.fill();
+        chamberCtx.stroke();
+        chamberCtx.restore();
+      });
+
+      // Helper to render Enzymes with Active Site, Allosteric Pocket, Bound Inhibitors & Denaturation
+      const drawEnzymeList = (list, colorFill, colorStroke, folded, compOcc, nonCompOcc) => {
+        const total = list.length;
+        const denatCount = Math.round(total * (1 - folded));
+        const foldedCount = total - denatCount;
+        const nonCompBoundCount = Math.round(foldedCount * nonCompOcc);
+        const remainingForComp = foldedCount - nonCompBoundCount;
+        const compBoundCount = Math.round(remainingForComp * compOcc);
+
+        list.forEach((p, idx) => {
+          moveParticle(p, 24);
+          chamberCtx.save();
+          chamberCtx.translate(p.x, p.y);
+          chamberCtx.rotate(p.angle);
+
+          if (idx < denatCount) {
+            // Denatured unfolded polypeptide ribbon
+            chamberCtx.strokeStyle = '#fb7185';
+            chamberCtx.lineWidth = 3;
+            chamberCtx.lineCap = 'round';
+            chamberCtx.beginPath();
+            chamberCtx.moveTo(-15, -4);
+            chamberCtx.bezierCurveTo(-6, 11, 5, -12, 15, 4);
+            chamberCtx.stroke();
+          } else {
+            const isAllostericBound = idx >= denatCount && idx < denatCount + nonCompBoundCount;
+            const isCompBound = !isAllostericBound && idx < denatCount + nonCompBoundCount + compBoundCount;
+
+            // If allosterically inhibited, warp/pinch active site mouth nearly shut
+            const mouthAngle = isAllostericBound ? 0.12 : 0.48;
+
+            chamberCtx.fillStyle = colorFill;
+            chamberCtx.strokeStyle = colorStroke;
+            chamberCtx.lineWidth = 2;
+            chamberCtx.beginPath();
+            chamberCtx.moveTo(0, 0);
+            chamberCtx.arc(0, 0, 15, mouthAngle, Math.PI * 2 - mouthAngle);
+            chamberCtx.closePath();
+            chamberCtx.fill();
+            chamberCtx.stroke();
+
+            // Draw docked Non-Competitive Inhibitor in back allosteric pocket
+            if (isAllostericBound) {
+              chamberCtx.fillStyle = '#c026d3';
+              chamberCtx.strokeStyle = '#ffffff';
+              chamberCtx.lineWidth = 1.5;
+              chamberCtx.beginPath();
+              chamberCtx.arc(-14, 0, 5, 0, Math.PI * 2);
+              chamberCtx.fill();
+              chamberCtx.stroke();
+            }
+
+            // Draw docked Competitive Inhibitor wedge inside active site notch
+            if (isCompBound) {
+              chamberCtx.fillStyle = '#f97316';
+              chamberCtx.strokeStyle = '#ffffff';
+              chamberCtx.lineWidth = 1.2;
+              chamberCtx.beginPath();
+              chamberCtx.moveTo(2, 0);
+              chamberCtx.lineTo(13, -5);
+              chamberCtx.lineTo(13, 5);
+              chamberCtx.closePath();
+              chamberCtx.fill();
+              chamberCtx.stroke();
+            }
+          }
+          chamberCtx.restore();
+        });
+      };
+
+      drawEnzymeList(particles.amylase, '#0ea5e9', '#bae6fd', m.amyFolded, m.amyCompOcc, m.amyNonCompOcc);
+      drawEnzymeList(particles.maltase, '#6366f1', '#c7d2fe', m.malFolded, m.malCompOcc, m.malNonCompOcc);
+    }
+
+    // --- Canvas Rendering: Real-Time Kinetics Graph + Hover Tooltip ---
+    let chartHoverX = null;
+
+    chartCanvas.addEventListener('mousemove', (e) => {
+      const rect = chartCanvas.getBoundingClientRect();
+      chartHoverX = e.clientX - rect.left;
+      drawKineticsChart();
+    });
+
+    chartCanvas.addEventListener('mouseleave', () => {
+      chartHoverX = null;
+      document.getElementById('chart-tooltip').classList.add('hidden');
+      drawKineticsChart();
+    });
+
+    function drawKineticsChart() {
+      const w = chartCanvas.width;
+      const h = chartCanvas.height;
+      chartCtx.clearRect(0, 0, w, h);
+
+      const padLeft = 44;
+      const padRight = 18;
+      const padTop = 16;
+      const padBottom = 30;
+      const plotW = Math.max(50, w - padLeft - padRight);
+      const plotH = Math.max(50, h - padTop - padBottom);
+
+      const xMax = state.maxDuration > 0 ? state.maxDuration : Math.max(60, Math.ceil(state.simTime / 15) * 15);
+      const maxTheoretical = Math.max(100, state.initStarch * 4 + state.initMaltose * 2);
+      const yMax = Math.ceil(maxTheoretical / 40) * 40;
+
+      // Grid lines & Y-axis labels
+      chartCtx.font = '500 11px "JetBrains Mono", monospace';
+      chartCtx.textAlign = 'right';
+      chartCtx.textBaseline = 'middle';
+
+      for (let i = 0; i <= 5; i++) {
+        const val = (yMax / 5) * i;
+        const y = padTop + plotH - (i / 5) * plotH;
+
+        chartCtx.strokeStyle = i === 0 ? '#94a3b8' : '#e2e8f0';
+        chartCtx.lineWidth = 1;
+        chartCtx.beginPath();
+        chartCtx.moveTo(padLeft, y);
+        chartCtx.lineTo(padLeft + plotW, y);
+        chartCtx.stroke();
+
+        chartCtx.fillStyle = '#64748b';
+        chartCtx.fillText(Math.round(val), padLeft - 8, y);
+      }
+
+      // X-axis ticks
+      chartCtx.textAlign = 'center';
+      chartCtx.textBaseline = 'top';
+      const tickStep = xMax <= 30 ? 5 : (xMax <= 60 ? 10 : 15);
+      for (let sec = 0; sec <= xMax; sec += tickStep) {
+        const x = padLeft + (sec / xMax) * plotW;
+        chartCtx.strokeStyle = '#e2e8f0';
+        chartCtx.beginPath();
+        chartCtx.moveTo(x, padTop);
+        chartCtx.lineTo(x, padTop + plotH);
+        chartCtx.stroke();
+
+        chartCtx.fillStyle = '#64748b';
+        chartCtx.fillText(`${sec}s`, x, padTop + plotH + 8);
+      }
+
+      const plotLine = (key, color) => {
+        if (state.history.length === 0) return;
+        chartCtx.strokeStyle = color;
+        chartCtx.lineWidth = 2.75;
+        chartCtx.lineJoin = 'round';
+        chartCtx.lineCap = 'round';
+        chartCtx.beginPath();
+
+        state.history.forEach((pt, idx) => {
+          const x = padLeft + (pt.t / xMax) * plotW;
+          const y = padTop + plotH - (Math.min(yMax, pt[key]) / yMax) * plotH;
+          if (idx === 0) chartCtx.moveTo(x, y);
+          else chartCtx.lineTo(x, y);
+        });
+        chartCtx.stroke();
+
+        const last = state.history[state.history.length - 1];
+        const lx = padLeft + (last.t / xMax) * plotW;
+        const ly = padTop + plotH - (Math.min(yMax, last[key]) / yMax) * plotH;
+        chartCtx.fillStyle = color;
+        chartCtx.beginPath();
+        chartCtx.arc(lx, ly, 4, 0, Math.PI * 2);
+        chartCtx.fill();
+      };
+
+      plotLine('starch', '#f59e0b');  // Gold/Amber
+      plotLine('maltose', '#14b8a6'); // Teal/Cyan
+      plotLine('glucose', '#10b981'); // Emerald
+
+      // Interactive Hover Crosshair & Tooltip
+      const tooltip = document.getElementById('chart-tooltip');
+      if (chartHoverX !== null && chartHoverX >= padLeft && chartHoverX <= padLeft + plotW && state.history.length > 0) {
+        const hoverTime = ((chartHoverX - padLeft) / plotW) * xMax;
+        // Find closest history point
+        let closest = state.history[0];
+        let minDiff = Math.abs(closest.t - hoverTime);
+        for (let i = 1; i < state.history.length; i++) {
+          const diff = Math.abs(state.history[i].t - hoverTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closest = state.history[i];
+          }
+        }
+
+        const cx = padLeft + (closest.t / xMax) * plotW;
+        chartCtx.strokeStyle = '#64748b';
+        chartCtx.setLineDash([4, 4]);
+        chartCtx.lineWidth = 1;
+        chartCtx.beginPath();
+        chartCtx.moveTo(cx, padTop);
+        chartCtx.lineTo(cx, padTop + plotH);
+        chartCtx.stroke();
+        chartCtx.setLineDash([]);
+
+        document.getElementById('tt-time').textContent = `${closest.t.toFixed(1)}s`;
+        document.getElementById('tt-starch').textContent = Math.round(closest.starch);
+        document.getElementById('tt-maltose').textContent = Math.round(closest.maltose);
+        document.getElementById('tt-glucose').textContent = Math.round(closest.glucose);
+
+        tooltip.classList.remove('hidden');
+        const ttX = cx + 14 > w - 130 ? cx - 135 : cx + 14;
+        tooltip.style.left = `${ttX}px`;
+        tooltip.style.top = '18px';
+      } else {
+        tooltip.classList.add('hidden');
+      }
+    }
+
+    // --- TAB 3: Batch Sweep (Denaturation & Optimal Curve Explorer) ---
+    function setSweepVariable(v) {
+      state.sweepVar = v;
+      const btnTemp = document.getElementById('sweep-var-temp');
+      const btnPh = document.getElementById('sweep-var-ph');
+      const title = document.getElementById('sweep-chart-title');
+
+      if (v === 'temp') {
+        btnTemp.className = 'px-3 py-1.5 font-semibold rounded-lg bg-white text-slate-900 shadow-2xs transition';
+        btnPh.className = 'px-3 py-1.5 font-medium rounded-lg text-slate-600 hover:text-slate-900 transition';
+        title.textContent = 'Initial Reaction Rate (mol/s) vs. Temperature (0°C – 80°C)';
+      } else {
+        btnPh.className = 'px-3 py-1.5 font-semibold rounded-lg bg-white text-slate-900 shadow-2xs transition';
+        btnTemp.className = 'px-3 py-1.5 font-medium rounded-lg text-slate-600 hover:text-slate-900 transition';
+        title.textContent = 'Initial Reaction Rate (mol/s) vs. Solution pH (1.0 – 14.0)';
+      }
+      runBatchSweep(false);
+    }
+
+    function computeSweepPoint(xVal, preBoiled) {
+      const T = state.sweepVar === 'temp' ? xVal : 37;
+      const pH = state.sweepVar === 'ph' ? xVal : 7.0;
+
+      if (preBoiled) return { x: xVal, amyRate: 0, malRate: 0 };
+
+      const tempKin = getTempKineticFactor(T);
+      const instantHeatLoss = T > 45 ? Math.min(1, (T - 45) / 18) : 0;
+
+      const amyFolded = Math.max(0, (1 - instantHeatLoss) * getPhActivityFactor(pH, 7.0, 1.35));
+      const malFolded = Math.max(0, (1 - instantHeatLoss) * getPhActivityFactor(pH, 6.3, 1.25));
+
+      // Initial velocity at [S] = 40, [E] = 6
+      const amyRate = ((0.34 * 6 * amyFolded * tempKin * 40) / (16 + 40)) * 2;
+      const malRate = ((0.40 * 6 * malFolded * tempKin * 40) / (18 + 40)) * 2;
+
+      return { x: xVal, amyRate, malRate };
+    }
+
+    function runBatchSweep(animated = true) {
+      if (state.sweepAnimTimer) {
+        clearInterval(state.sweepAnimTimer);
+        state.sweepAnimTimer = null;
+      }
+
+      const preBoiled = document.getElementById('sweep-preboil').checked;
+      const points = [];
+      if (state.sweepVar === 'temp') {
+        for (let t = 0; t <= 80; t += 2) points.push(computeSweepPoint(t, preBoiled));
+      } else {
+        for (let p = 1.0; p <= 14.001; p += 0.5) points.push(computeSweepPoint(Number(p.toFixed(1)), preBoiled));
+      }
+
+      if (!animated) {
+        state.sweepData = points;
+        drawSweepChart();
+        return;
+      }
+
+      state.sweepData = [];
+      let idx = 0;
+      state.sweepAnimTimer = setInterval(() => {
+        if (idx >= points.length) {
+          clearInterval(state.sweepAnimTimer);
+          state.sweepAnimTimer = null;
+          return;
+        }
+        state.sweepData.push(points[idx]);
+        idx++;
+        drawSweepChart();
+      }, 30);
+    }
+
+    function drawSweepChart() {
+      const w = sweepCanvas.width;
+      const h = sweepCanvas.height;
+      if (!w || !h) return;
+      sweepCtx.clearRect(0, 0, w, h);
+
+      const padLeft = 48;
+      const padRight = 20;
+      const padTop = 20;
+      const padBottom = 34;
+      const plotW = Math.max(50, w - padLeft - padRight);
+      const plotH = Math.max(50, h - padTop - padBottom);
+
+      const xMin = state.sweepVar === 'temp' ? 0 : 1;
+      const xMax = state.sweepVar === 'temp' ? 80 : 14;
+      const yMax = 4.5;
+
+      // Y-axis grid
+      sweepCtx.font = '500 11px "JetBrains Mono", monospace';
+      sweepCtx.textAlign = 'right';
+      sweepCtx.textBaseline = 'middle';
+      for (let i = 0; i <= 5; i++) {
+        const val = (yMax / 5) * i;
+        const y = padTop + plotH - (i / 5) * plotH;
+        sweepCtx.strokeStyle = i === 0 ? '#94a3b8' : '#e2e8f0';
+        sweepCtx.lineWidth = 1;
+        sweepCtx.beginPath();
+        sweepCtx.moveTo(padLeft, y);
+        sweepCtx.lineTo(padLeft + plotW, y);
+        sweepCtx.stroke();
+        sweepCtx.fillStyle = '#64748b';
+        sweepCtx.fillText(val.toFixed(1), padLeft - 8, y);
+      }
+
+      // X-axis ticks
+      sweepCtx.textAlign = 'center';
+      sweepCtx.textBaseline = 'top';
+      const ticks = state.sweepVar === 'temp'
+        ? [0, 10, 20, 30, 37, 50, 60, 70, 80]
+        : [1, 3, 5, 7, 9, 11, 14];
+      ticks.forEach(val => {
+        const x = padLeft + ((val - xMin) / (xMax - xMin)) * plotW;
+        sweepCtx.strokeStyle = '#e2e8f0';
+        sweepCtx.beginPath();
+        sweepCtx.moveTo(x, padTop);
+        sweepCtx.lineTo(x, padTop + plotH);
+        sweepCtx.stroke();
+        sweepCtx.fillStyle = '#64748b';
+        sweepCtx.fillText(state.sweepVar === 'temp' ? `${val}°` : `${val}`, x, padTop + plotH + 8);
+      });
+
+      const drawCurve = (key, color) => {
+        if (state.sweepData.length === 0) return;
+        sweepCtx.strokeStyle = color;
+        sweepCtx.lineWidth = 3;
+        sweepCtx.lineJoin = 'round';
+        sweepCtx.beginPath();
+        state.sweepData.forEach((pt, idx) => {
+          const x = padLeft + ((pt.x - xMin) / (xMax - xMin)) * plotW;
+          const y = padTop + plotH - (Math.min(yMax, pt[key]) / yMax) * plotH;
+          if (idx === 0) sweepCtx.moveTo(x, y);
+          else sweepCtx.lineTo(x, y);
+        });
+        sweepCtx.stroke();
+
+        state.sweepData.forEach(pt => {
+          const x = padLeft + ((pt.x - xMin) / (xMax - xMin)) * plotW;
+          const y = padTop + plotH - (Math.min(yMax, pt[key]) / yMax) * plotH;
+          sweepCtx.fillStyle = color;
+          sweepCtx.beginPath();
+          sweepCtx.arc(x, y, 3, 0, Math.PI * 2);
+          sweepCtx.fill();
+        });
+      };
+
+      drawCurve('amyRate', '#0ea5e9');
+      drawCurve('malRate', '#6366f1');
+    }
+
+    // --- Responsive Canvas Resizing ---
+    function resizeCanvases() {
+      const chamberRect = document.getElementById('chamber-container').getBoundingClientRect();
+      if (chamberRect.width > 0 && chamberRect.height > 0) {
+        chamberCanvas.width = chamberRect.width;
+        chamberCanvas.height = chamberRect.height;
+      }
+
+      const chartRect = document.getElementById('chart-container').getBoundingClientRect();
+      if (chartRect.width > 0 && chartRect.height > 0) {
+        chartCanvas.width = chartRect.width;
+        chartCanvas.height = chartRect.height;
+      }
+
+      const sweepRect = document.getElementById('sweep-canvas-container').getBoundingClientRect();
+      if (sweepRect.width > 0 && sweepRect.height > 0) {
+        sweepCanvas.width = sweepRect.width;
+        sweepCanvas.height = sweepRect.height;
+      }
+
+      drawKineticsChart();
+      drawSweepChart();
+    }
+
+    // --- Main Animation Loop ---
+    function mainLoop(timestamp) {
+      if (!lastFrameTime) lastFrameTime = timestamp;
+      const dtReal = Math.min(0.1, (timestamp - lastFrameTime) / 1000);
+      lastFrameTime = timestamp;
+
+      if (state.running && (state.mode === 'full' || state.mode === 'single')) {
+        const dtSim = dtReal * SIM_TIME_SCALE * state.speedMultiplier;
+        stepSimulation(dtSim);
+        drawKineticsChart();
+      }
+
+      if (state.mode === 'full' || state.mode === 'single') {
+        updateAndDrawChamber(dtReal);
+      }
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+    window.onload = function () {
+      resizeCanvases();
+      resetSimulation(false);
+      requestAnimationFrame(mainLoop);
+    };
+  </script>
+</body>
+</html>
